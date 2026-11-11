@@ -1,0 +1,25 @@
+services:
+  vereinsbeitraege:
+    build: .
+    container_name: vereinsbeitraege
+    restart: unless-stopped
+    ports:
+      - "2312:8000"
+    environment:
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?Bitte ADMIN_PASSWORD in Portainer setzen}"
+      EDITOR_PASSWORD: "${EDITOR_PASSWORD:?Bitte EDITOR_PASSWORD setzen}"
+      READER_PASSWORD: "${READER_PASSWORD:?Bitte READER_PASSWORD setzen}"
+      SECRET_KEY: "${SECRET_KEY:?Bitte SECRET_KEY in Portainer setzen}"
+      # Für HTTPS hinter einem Reverse Proxy auf 1 setzen:
+      COOKIE_SECURE: "0"
+      # Optional: Standardbeiträge für neu angelegte Datensätze (Euro):
+      DEFAULT_FAMILY_FEE: "100"
+      DEFAULT_SUPPORT_FAMILY_FEE: "100"
+      DEFAULT_SINGLE_FEE: "60"
+      DEFAULT_SUPPORT_FEE: "30"
+      DEFAULT_TRAINING_FEE: "20"
+      DEFAULT_OTHER_FEE: "0"
+    volumes:
+      - vereinsbeitraege_data:/data
+volumes:
+  vereinsbeitraege_data:

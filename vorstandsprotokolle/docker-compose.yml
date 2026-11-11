@@ -1,0 +1,18 @@
+services:
+  vorstandsprotokolle:
+    build: .
+    container_name: vorstandsprotokolle
+    restart: unless-stopped
+    ports:
+      - "8188:8787"
+    environment:
+      ADMIN_PASSWORD: "BITTE-AENDERN"
+      EDITOR_PASSWORD: "REDAKTEUR-AENDERN"
+      READER_PASSWORD: "LESER-AENDERN"
+      SECRET_KEY: "BITTE-EINEN-LANGEN-ZUFAELLIGEN-WERT-EINTRAGEN"
+      MAX_UPLOAD_MB: "50"
+    volumes:
+      - vorstandsprotokolle_data:/data
+
+volumes:
+  vorstandsprotokolle_data:

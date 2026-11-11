@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}Anmelden · Vereinsverwaltung{% endblock %}{% block content %}
+<div class="auth card"><h1>Anmelden</h1><p class="muted">Vereinsverwaltung und Vorstandsprotokolle</p>
+<form method="post"><label>Benutzername<input name="username" autocomplete="username" required autofocus placeholder="admin, redakteur oder leser"></label>
+<label>Passwort<input type="password" name="password" autocomplete="current-password" required></label><button class="btn primary full">Anmelden</button></form></div>{% endblock %}

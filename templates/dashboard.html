@@ -1,0 +1,114 @@
+{% extends 'base.html' %}{% block title %}Beitragsübersicht {{ year }}{% endblock %}{% block content %}
+<div class="heading"><div><p class="eyebrow">FINANZEN / JAHRESÜBERSICHT</p><h1>Mitgliedsbeiträge <span>{{ year }}</span></h1></div><div class="actions no-print">{% if role=='admin' %}<a class="btn" href="{{ url_for('export_data',kind='dues',fmt='xlsx',year=year) }}">↧ Excel</a><a class="btn" href="{{ url_for('export_data',kind='dues',fmt='csv',year=year) }}">↧ CSV</a>{% endif %}<button type="button" class="btn" onclick="window.print()">⎙ Drucken</button>{% if role=='admin' %}<a class="btn" href="{{ url_for('backup') }}">⇩ Datenbank sichern</a>{% endif %}</div></div>
+<div class="yearbar no-print"><a class="btn yeararrow" href="{{ url_for('dashboard',year=year-1) if year>2000 else '#' }}" {% if year<=2000 %}aria-disabled="true"{% endif %}>← Vorjahr</a><div class="yearbadge">{{ year }} {% if year==current_year %}<span class="tinybadge">Aktuelles Jahr</span>{% else %}<span class="tinybadge">Archivansicht</span>{% endif %}</div><a class="btn yeararrow" href="{{ url_for('dashboard',year=year+1) if year<current_year else '#' }}" {% if year>=current_year %}aria-disabled="true"{% endif %}>Nächstes Jahr →</a>{% if year!=current_year %}<a class="btn" href="{{ url_for('dashboard') }}">↗ Aktuelles Jahr</a>{% endif %}<a class="archive-link" href="{{ url_for('archive') }}">Alle Archivjahre →</a></div>
+<div class="statgrid"><section class="stat"><span>Gesamtsumme (Soll)</span><strong id="dues-total">{{ total|euro }}</strong><small id="dues-total-count">{{ total_count }} beitragspflichtige Einheiten</small></section><section class="stat"><span>Zahlungseingänge</span><strong id="dues-paid" class="green">{{ paid|euro }}</strong><small id="dues-paid-count">{{ paid_count }} Zahlungen · tatsächlich überwiesen</small></section><section class="stat"><span>Noch offen</span><strong id="dues-missing" class="orange">{{ missing|euro }}</strong><small id="dues-missing-count">{{ total_count-paid_count }} unbezahlte Beiträge</small></section></div>
+<div class="cologne-summary" aria-label="Beiträge nach Köln-Meldestatus">
+  {% for key, heading in [('registered', 'In Köln gemeldet'), ('not_registered', 'Nicht in Köln gemeldet')] %}
+  {% set figures = cologne_totals[key] %}
+  <section class="cologne-summary-section">
+    <div class="cologne-summary-heading"><h2>{{ heading }}</h2><span>{{ figures.count }} beitragspflichtige Einheiten</span></div>
+    <div class="statgrid cologne-statgrid">
+      <section class="stat"><span>Gesamtsumme (Soll)</span><strong id="cologne-{{ key }}-total">{{ figures.total|euro }}</strong></section>
+      <section class="stat"><span>Zahlungseingänge</span><strong class="green" id="cologne-{{ key }}-paid">{{ figures.paid|euro }}</strong></section>
+      <section class="stat"><span>Noch offen</span><strong class="orange" id="cologne-{{ key }}-missing">{{ figures.missing|euro }}</strong></section>
+    </div>
+  </section>
+  {% endfor %}
+</div>
+<div class="progressarea"><div class="progress-label"><strong>Zahlungsfortschritt</strong><span id="dues-progress-label">{{ ((paid/total*100)|round|int) if total else 0 }} % eingegangen</span></div><div class="progress-track"><div class="progress-fill" id="dues-progress" style="width:{{ [100,(paid/total*100) if total else 0]|min }}%"></div></div></div>
+<section class="card filtercard no-print"><form class="filters" method="get"><input type="hidden" name="year" value="{{ year }}"><label>Suche<input type="search" name="q" value="{{ search }}" placeholder="Name oder Beitragsart"></label><label>Zahlungsstatus<select name="show"><option value="all" {% if show=='all' %}selected{% endif %}>Alle Beiträge</option><option value="open" {% if show=='open' %}selected{% endif %}>Nur offene</option><option value="paid" {% if show=='paid' %}selected{% endif %}>Nur bezahlte</option></select></label><button class="btn primary">Filter anwenden</button></form></section>
+<div class="sectiontitle"><h2>Beitragsliste <span class="muted small">{{ year }}</span></h2><a class="btn primary no-print" href="{{ url_for('member_new') }}">＋ Mitglied anlegen</a></div>
+<div class="tablewrap" id="dues-list"><table class="payment-table"><thead><tr><th>Beitragspflichtiger</th><th>Art</th><th class="cologne-column">In Köln gemeldet</th><th>Soll-Beitrag</th><th>Zahlungsstatus</th><th>Eingang</th><th>Differenz</th><th>Details / Vermerk</th></tr></thead><tbody>
+{% for row in rows %}<tr id="due-{{ row.id }}" class="{% if row.paid %}paidrow{% endif %}" data-paid="{{ 1 if row.paid else 0 }}" data-amount="{{ row.amount_cents }}" data-received="{{ row.received_cents if row.received_cents is not none else row.amount_cents }}" data-note="{{ row.payment_note|e if row.payment_note else '' }}" data-url="{{ url_for('toggle_paid', due_id=row.id, year=year) }}">
+<td><strong>{{ row.payer_name }}</strong></td><td><span class="pill">{{ row.category_name }}</span></td><td class="cologne-column"><span class="cologne-mark" title="{% if row.family_id %}Mindestens ein aktives Familienmitglied ist in Köln gemeldet{% else %}Diese Person ist in Köln gemeldet{% endif %}" aria-label="{{ 'Ja' if cologne_for_due.get(row.id) else 'Nein' }}">{% if cologne_for_due.get(row.id) %}✓{% else %}–{% endif %}</span></td><td><strong>{{ row.amount_cents|euro }}</strong></td>
+<td><label class="checklabel payment-status"><input type="checkbox" class="payment-checkbox" {% if role != 'admin' %}disabled{% endif %} {% if row.paid %}checked{% endif %} aria-label="Zahlungseingang {{ row.payer_name }}"><span class="payment-status-label">{{ 'Bezahlt' if row.paid else 'Offen' }}</span></label></td>
+<td class="actual-cell">{{ (row.received_cents if row.received_cents is not none else row.amount_cents)|euro if row.paid else '–' }}</td>
+{% set difference = row.amount_cents - (row.received_cents if row.received_cents is not none else row.amount_cents) %}
+<td class="difference-cell{% if row.paid and difference > 0 %} payment-shortfall{% elif row.paid and difference < 0 %} payment-overage{% endif %}">{% if not row.paid %}–{% elif difference > 0 %}−{{ difference|euro }}{% elif difference < 0 %}+{{ (-difference)|euro }}{% else %}{{ 0|euro }}{% endif %}</td>
+<td class="payment-details-cell"><button type="button" class="payment-detail-btn btn sm no-print" aria-label="Zahlungsdetails für {{ row.payer_name }} öffnen" title="Überweisungsbetrag und Vermerk bearbeiten">＋ <span class="detail-indicator">{% if row.payment_note %}📝{% elif row.paid and row.received_cents is not none and row.received_cents != row.amount_cents %}●{% endif %}</span></button><span class="only-print print-payment-note">{{ row.payment_note if row.payment_note else '–' }}</span></td>
+</tr>
+{% else %}<tr><td colspan="8" class="empty">Keine Einträge vorhanden. Lege Mitglieder und gegebenenfalls Familien an.</td></tr>{% endfor %}
+</tbody></table></div>
+<dialog id="payment-dialog" class="app-dialog"><form method="dialog" class="dialog-panel" id="payment-dialog-form"><div class="dialog-head"><div><p class="eyebrow">ZAHLUNGSDETAILS</p><h2 id="payment-dialog-title">Zahlung bearbeiten</h2></div><button class="iconbutton dialog-x" type="button" data-dialog-close aria-label="Schließen">×</button></div><p class="muted">Soll-Beitrag: <strong id="payment-dialog-target"></strong></p><label>Tatsächlich überwiesen (€)<input type="text" required inputmode="decimal" id="payment-dialog-received" placeholder="z. B. 36,00"></label><label>Vermerk / Abweichung<textarea rows="4" maxlength="2000" id="payment-dialog-note" placeholder="z. B. 5 € weniger überwiesen – Rückfrage offen"></textarea></label><p class="hint">Der Soll-Beitrag wird hier nicht verändert. Für Änderungen der Beitragshöhe die Mitglieder- bzw. Familienakte verwenden.</p><div class="dialog-actions"><button type="button" class="btn" data-dialog-close>Abbrechen</button><button type="submit" class="btn primary" id="payment-dialog-save">Änderungen speichern</button></div></form></dialog>
+<script>
+{% if role != 'admin' %}
+document.addEventListener('DOMContentLoaded',()=>{
+ document.querySelectorAll('.payment-detail-btn').forEach(button=>button.addEventListener('click',()=>{
+  setTimeout(()=>{const d=document.getElementById('payment-dialog');
+   d.querySelectorAll('input,textarea').forEach(x=>x.readOnly=true);
+   const save=d.querySelector('#payment-dialog-save');if(save)save.hidden=true;
+  },0);
+ }));
+});
+{% endif %}
+(()=>{
+const csrf={{ csrf_token|tojson }}, show={{ show|tojson }}, year={{ year|tojson }};
+const fmt=cents=>(Number(cents)/100).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+const modal=document.getElementById('payment-dialog'),form=document.getElementById('payment-dialog-form');
+let editRow=null;
+modal.querySelectorAll('[data-dialog-close]').forEach(b=>b.addEventListener('click',()=>modal.close()));
+async function send(row,params){
+ const fd=new FormData(); Object.entries({...params,_csrf:csrf,q:{{ search|tojson }},show}).forEach(([k,v])=>fd.set(k,String(v)));
+ const res=await fetch(row.dataset.url,{method:'POST',body:fd,credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}});
+ let payload;try{payload=await res.json();}catch(_){throw new Error('Serverantwort ungültig. Bitte Seite neu laden.');}
+ if(!res.ok||!payload.ok)throw new Error(payload.error||'Die Änderung konnte nicht gespeichert werden.');
+ row.dataset.paid=payload.paid?'1':'0';row.dataset.received=payload.received_cents??row.dataset.amount;row.dataset.note=payload.payment_note||'';
+ const cb=row.querySelector('.payment-checkbox'); cb.checked=payload.paid;
+ row.classList.toggle('paidrow',payload.paid);
+ row.querySelector('.payment-status-label').textContent=payload.paid?'Bezahlt':'Offen';
+ row.querySelector('.actual-cell').textContent=payload.formatted_received;
+ const differenceCell=row.querySelector('.difference-cell');
+ const diff=payload.difference_cents;
+ differenceCell.classList.toggle('payment-shortfall',payload.paid&&diff>0);
+ differenceCell.classList.toggle('payment-overage',payload.paid&&diff<0);
+ differenceCell.textContent=!payload.paid?'–':diff>0?'−'+fmt(diff):diff<0?'+'+fmt(-diff):fmt(0);
+ row.querySelector('.detail-indicator').textContent=payload.payment_note?'📝':(payload.paid&&payload.difference_cents!==0?'●':'');
+ row.querySelector('.print-payment-note').textContent=payload.payment_note||'–';
+ document.getElementById('dues-total').textContent=payload.formatted_total;
+ document.getElementById('dues-paid').textContent=payload.formatted_paid;
+ document.getElementById('dues-missing').textContent=payload.formatted_missing;
+ document.getElementById('dues-paid-count').textContent=`${payload.paid_count} Zahlungen · tatsächlich überwiesen`;
+ document.getElementById('dues-missing-count').textContent=`${payload.total_count-payload.paid_count} unbezahlte Beiträge`;
+ for(const key of ['registered','not_registered']){
+  const values=payload.cologne_totals[key];
+  for(const field of ['total','paid','missing']){
+   document.getElementById(`cologne-${key}-${field}`).textContent=fmt(values[field]);
+  }
+ }
+ document.getElementById('dues-progress-label').textContent=`${payload.progress.toLocaleString('de-DE')} % eingegangen`;
+ document.getElementById('dues-progress').style.width=`${Math.max(0,Math.min(100,payload.progress))}%`;
+ if((show==='paid'&&!payload.paid)||(show==='open'&&payload.paid)){row.remove();}
+ return payload;
+}
+for(const row of document.querySelectorAll('.payment-table tbody tr[data-url]')){
+ const cb=row.querySelector('.payment-checkbox');
+ cb.addEventListener('change',async()=>{
+  const target=cb.checked,prior=row.dataset.paid==='1'; cb.checked=prior;
+  if(!target&&prior){const ok=await window.vereinConfirm('Zahlung wirklich zurücknehmen?','Die bezahlte Buchung wird wieder als offen markiert. Der erfasste Zahlungseingang wird dabei entfernt.','Zahlung zurücknehmen');if(!ok)return;}
+  // Neue Zahlung mit einem Klick buchen; für abweichende Beträge das + verwenden.
+  cb.disabled=true;
+  try{await send(row,{paid:target?'1':'0',action:'toggle',confirm_remove:!target?'1':'0',received_amount:row.dataset.received?fmt(row.dataset.received).replace('€','').trim():'0',payment_note:row.dataset.note||''});window.vereinToast('Zahlungsstatus gespeichert.');}
+  catch(e){window.vereinAlert(e.message,'Fehler beim Speichern');}finally{cb.disabled=false;}
+ });
+ row.querySelector('.payment-detail-btn').addEventListener('click',()=>{
+  editRow=row;
+  document.getElementById('payment-dialog-title').textContent=row.querySelector('td:first-child').textContent.trim();
+  document.getElementById('payment-dialog-target').textContent=fmt(row.dataset.amount);
+  document.getElementById('payment-dialog-received').value=fmt(row.dataset.received).replace('€','').trim();
+  document.getElementById('payment-dialog-note').value=row.dataset.note||'';
+  document.getElementById('payment-dialog-save').textContent=row.dataset.paid==='1'?'Änderungen speichern':'Zahlung erfassen';
+  modal.showModal();
+ });
+}
+form.addEventListener('submit',async ev=>{
+ ev.preventDefault();if(!editRow)return;
+ const amount=document.getElementById('payment-dialog-received').value.trim();
+ if(!/^\d+(?:[,.]\d{1,2})?$/.test(amount)){window.vereinAlert('Bitte einen gültigen Betrag eingeben (z. B. 36,50 €).','Ungültiger Betrag');return;}
+ const paid=editRow.dataset.paid==='1';const btn=document.getElementById('payment-dialog-save');btn.disabled=true;
+ try{await send(editRow,{paid:'1',action:paid?'save':'toggle',confirm_remove:'0',received_amount:amount,payment_note:document.getElementById('payment-dialog-note').value});modal.close();window.vereinToast('Zahlungsdetails gespeichert.');}
+ catch(e){window.vereinAlert(e.message,'Fehler beim Speichern');}finally{btn.disabled=false;}
+});
+})();
+</script>
+<p class="hint no-print">Das Jahr wird als Beitrags-Snapshot geführt. Vorhandene Jahresbuchungen und die historischen Zahlungseingänge bleiben erhalten.</p>
+{% endblock %}

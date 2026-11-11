@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>{% block title %}Vereinsbeiträge{% endblock %}</title>
+<script>(function(){var t=localStorage.getItem('verein-theme')||'system';document.documentElement.dataset.theme=t})();</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<body class="role-{{ role|default('reader') }}"><header class="topbar"><div class="container bar"><a href="{{ url_for('dashboard') }}" class="brand"><img class="brandmark" src="{{ url_for('static',filename='logo.svg') }}" alt="Kolping-inspiriertes Vereinssignet"> <span>Kolping <small>Vereinsverwaltung</small></span></a>
+{% if session.get('authenticated') %}<nav><a href="{{ url_for('dashboard') }}" class="{% if request.endpoint=='dashboard' %}active{% endif %}">Übersicht</a><a href="{{ url_for('members') }}" class="{% if request.endpoint in ['members','member_edit','member_new'] %}active{% endif %}">Mitglieder</a><a href="{{ url_for('families') }}" class="{% if request.endpoint in ['families','family_edit','family_new'] %}active{% endif %}">Familien</a><a href="/protokolle/">Protokolle</a><a href="{{ url_for('jubilees') }}" class="{% if request.endpoint=='jubilees' %}active{% endif %}">Jubilare</a><a href="{{ url_for('statistics') }}" class="{% if request.endpoint=='statistics' %}active{% endif %}">Statistik</a>{% if role=='admin' %}<a href="{{ url_for('users_admin') }}">Benutzer</a><a href="{{ url_for('admin') }}" class="{% if request.endpoint=='admin' %}active{% endif %}">Admin</a><a href="{{ url_for('import_excel') }}" class="{% if request.endpoint=='import_excel' %}active{% endif %}">Import</a><a href="{{ url_for('archive') }}" class="{% if request.endpoint=='archive' %}active{% endif %}">Archiv</a>{% endif %}</nav>{% endif %}
+<div class="header-actions"><button type="button" class="iconbutton theme-toggle" title="Darstellung wechseln" aria-label="Darstellung wechseln"><span class="theme-symbol">◐</span> <span class="theme-label">Modus</span></button>{% if session.get('authenticated') %}<form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button class="navbtn" type="submit">Abmelden</button></form>{% endif %}</div></div></header>
+<main class="container">{% for kind, message in get_flashed_messages(with_categories=true) %}<div class="alert {{ kind }}">{{ message }}</div>{% endfor %}{% block content %}{% endblock %}</main>
+<dialog id="verein-confirm" class="app-dialog"><div class="dialog-panel"><div class="dialog-head"><h2 id="verein-confirm-title">Bitte bestätigen</h2><button class="iconbutton" type="button" id="verein-confirm-x" aria-label="Schließen">×</button></div><p id="verein-confirm-message" class="muted"></p><div class="dialog-actions"><button type="button" class="btn" id="verein-confirm-cancel">Abbrechen</button><button type="button" class="btn danger" id="verein-confirm-ok">Bestätigen</button></div></div></dialog><div id="verein-toast" role="status" aria-live="polite" class="app-toast" hidden></div>
+<footer class="container footer">Vereinsbeiträge · Lokal gespeichert · <span id="mode-caption">Hell / Dunkel / System</span></footer>
+<script>(function(){const b=document.querySelector('.theme-toggle'),v=['system','light','dark'];function paint(){const t=document.documentElement.dataset.theme;document.querySelector('.theme-label').textContent=t==='system'?'System':t==='dark'?'Dunkel':'Hell';document.querySelector('.theme-symbol').textContent=t==='system'?'◐':t==='dark'?'☾':'☀'}paint();b.addEventListener('click',()=>{const t=v[(v.indexOf(document.documentElement.dataset.theme)+1)%v.length];localStorage.setItem('verein-theme',t);document.documentElement.dataset.theme=t;paint()})})();</script>
+<script>
+(()=>{
+ const d=document.getElementById('verein-confirm'),title=document.getElementById('verein-confirm-title'),message=document.getElementById('verein-confirm-message');
+ const cancel=document.getElementById('verein-confirm-cancel'),ok=document.getElementById('verein-confirm-ok'),x=document.getElementById('verein-confirm-x');
+ let resolveDialog=null;
+ function finish(v){if(!d.open)return;d.close();if(resolveDialog){resolveDialog(v);resolveDialog=null;}}
+ cancel.addEventListener('click',()=>finish(false));x.addEventListener('click',()=>finish(false));ok.addEventListener('click',()=>finish(true));
+ d.addEventListener('cancel',e=>{e.preventDefault();finish(false)});
+ window.vereinConfirm=(heading,body,confirmText='Bestätigen')=>{
+  if(d.open)finish(false);
+  title.textContent=heading;message.textContent=body;ok.textContent=confirmText;
+  cancel.hidden=false;ok.classList.add('danger');d.showModal();
+  return new Promise(resolve=>{resolveDialog=resolve});
+ };
+ window.vereinAlert=(body,heading='Hinweis')=>{
+  if(d.open)finish(false);title.textContent=heading;message.textContent=body;ok.textContent='Verstanden';
+  cancel.hidden=true;ok.classList.remove('danger');d.showModal();
+  return new Promise(resolve=>{resolveDialog=resolve});
+ };
+ let toastTimer;
+ window.vereinToast=(value)=>{const t=document.getElementById('verein-toast');t.textContent=value;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,2600)};
+ // The original forms use a native confirm in an inline submit attribute.
+ // Replace it with accessible overlays without allowing a second immediate submission.
+ document.querySelectorAll('form[data-confirm]').forEach(form=>form.addEventListener('submit',async e=>{
+   if(form.dataset.confirmed==='1')return;
+   e.preventDefault();e.stopImmediatePropagation();
+   if(await window.vereinConfirm('Bitte bestätigen',form.dataset.confirm,'Fortfahren')){
+    form.dataset.confirmed='1';form.requestSubmit();
+   }
+ },true));
+})();
+</script>
+<script>
+(function(){var r={{ role|tojson }};
+ if(r==='reader')document.querySelectorAll('main form[method="post"],main form[method="POST"],main a[href$="/edit"],main a[href$="/new"],main a[href*="/merge"]').forEach(x=>x.hidden=true);
+ if(r==='editor')document.querySelectorAll('main form[action*="/delete"],main form[action*="/paid"],main a[href*="/backup"]').forEach(x=>x.hidden=true);
+})();
+</script></body></html>
