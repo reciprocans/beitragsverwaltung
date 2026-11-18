@@ -1,0 +1,8 @@
+{% extends 'base.html' %}{% block title %}Benutzerkonten{% endblock %}{% block content %}
+<h1>Benutzerkonten</h1><p class="muted">Drei feste Benutzerrollen. Änderungen werden nur bei neuen Anmeldungen wirksam.</p>
+<div class="grid">{% for user in users %}<section class="card"><h2>{{ user.username|capitalize }}</h2>
+<p class="muted">{{ {'admin':'Vollzugriff','editor':'Mitglieder und Dokumente bearbeiten','reader':'Nur lesen'}[user.role] }}</p>
+<form method="post"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="username" value="{{ user.username }}">
+<label>Neues Passwort (mind. 10 Zeichen)<input type="password" name="new_password" minlength="10" required></label>
+<label>Wiederholen<input type="password" name="confirm_password" minlength="10" required></label>
+<button class="btn primary" type="submit">Passwort ändern</button></form></section>{% endfor %}</div>{% endblock %}

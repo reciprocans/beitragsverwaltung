@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block content %}
+{% if current_role in ['admin', 'editor'] %}
+<div class="page-actions">
+  <button class="add-button" type="button" id="open-upload" aria-label="Dokument hinzufügen" title="Dokument hinzufügen">+</button>
+</div>
+
+<div class="modal-backdrop" id="upload-modal" hidden>
+  <section class="card upload-modal" role="dialog" aria-modal="true" aria-labelledby="upload-title">
+    <div class="modal-head">
+      <h1 id="upload-title">Dokument hinzufügen</h1>
+      <button class="icon-button" type="button" id="close-upload" aria-label="Schließen">×</button>
+    </div>
+    <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="upload-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
+      <div><label>Titel</label><input type="text" name="title" placeholder="z. B. Einladung Sommerfest 2026" required></div>
+      <div><label>Datum des Schriftstücks</label><input type="date" name="document_date" required></div>
+      <div><label>Rubrik</label>
+        <select name="category" required>
+          {% for category in categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="wide"><label>Kommentar / Notiz</label><textarea name="comment" rows="3" placeholder="Optional"></textarea></div>
+      <div class="wide"><label>Datei</label><input type="file" name="file" accept=".pdf,.doc,.docx,.xls,.xlsx" required></div>
+      <div class="modal-actions">
+        <button class="btn secondary" type="button" id="cancel-upload">Abbrechen</button>
+        <button type="submit">Hochladen</button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endif %}
+
+<section>
+  <div class="section-head">
+    <div>
+      <h2>Dokumente{% if selected_year %} · {{ selected_year }}{% endif %}</h2>
+      {% if years %}
+      <nav class="year-tabs" aria-label="Jahr auswählen">
+        {% for year in years %}
+          <a class="year-tab {% if year == selected_year %}active{% endif %}" href="{{ url_for('index', year=year, category=selected_category) }}">{{ year }}</a>
+        {% endfor %}
+      </nav>
+      {% endif %}
+    </div>
+    <form method="get" class="filter-form">
+      <input type="hidden" name="year" value="{{ selected_year }}">
+      <label for="category-filter">Rubrik</label>
+      <select id="category-filter" name="category" onchange="this.form.submit()">
+        <option value="">Alle Rubriken</option>
+        {% for category in categories %}<option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+
+  {% if docs %}
+  <div class="doc-list">
+    {% for doc in docs %}
+    <article class="doc card">
+      <div class="doc-main">
+        <div class="doc-tags"><span class="badge">{{ doc.category }}</span><span class="date-badge">{{ doc.document_date[8:10] }}.{{ doc.document_date[5:7] }}.{{ doc.document_date[:4] }}</span></div>
+        <a class="doc-title" href="{{ url_for('view_document', doc_id=doc.id) }}">{{ doc.title }}</a>
+        {% if doc.comment %}<div class="comment">{{ doc.comment }}</div>{% endif %}
+        <div class="muted">{{ doc.original_name }}</div>
+      </div>
+      <div class="actions">
+        <a class="btn secondary" href="{{ url_for('view_document', doc_id=doc.id) }}">Ansehen</a>
+        <a class="btn secondary" href="{{ url_for('download', doc_id=doc.id) }}">Download</a>
+        {% if current_role == 'admin' %}
+        <form method="post" action="{{ url_for('archive_document', doc_id=doc.id) }}" onsubmit="return confirm('Dokument archivieren?')"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
+          <button class="secondary" type="submit">Archivieren</button>
+        </form>
+        {% endif %}
+        {% if current_role in ['admin', 'editor'] %}
+        <form method="post" action="{{ url_for('delete', doc_id=doc.id) }}" onsubmit="return confirm('Dokument wirklich endgültig löschen?')"><input type="hidden" name="_csrf" value="{{ csrf_token }}">
+          <button class="danger" type="submit">Löschen</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty card">Keine Dokumente für diese Auswahl vorhanden.</div>
+  {% endif %}
+</section>
+
+{% if current_role in ['admin', 'editor'] %}
+<script>
+(() => {
+  const modal = document.getElementById('upload-modal');
+  const open = document.getElementById('open-upload');
+  const close = document.getElementById('close-upload');
+  const cancel = document.getElementById('cancel-upload');
+  const firstInput = modal.querySelector('input[name="title"]');
+  function showModal() { modal.hidden = false; document.body.classList.add('modal-open'); setTimeout(() => firstInput.focus(), 0); }
+  function hideModal() { modal.hidden = true; document.body.classList.remove('modal-open'); open.focus(); }
+  open.addEventListener('click', showModal); close.addEventListener('click', hideModal); cancel.addEventListener('click', hideModal);
+  modal.addEventListener('click', (event) => { if (event.target === modal) hideModal(); });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !modal.hidden) hideModal(); });
+})();
+</script>
+{% endif %}
+{% endblock %}

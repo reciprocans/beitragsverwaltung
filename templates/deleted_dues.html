@@ -1,0 +1,7 @@
+{% extends 'base.html' %}{% block title %}Löscharchiv{% endblock %}{% block content %}
+<div class="heading"><div><p class="eyebrow">ADMIN / ARCHIV</p><h1>Löscharchiv der Beiträge</h1><p class="muted">Hier werden Beiträge gelöschter Mitglieder und verwaister Familien verwahrt. Sie werden nicht mehr in der normalen Beitragsübersicht oder deren Summen gezählt.</p></div><div class="actions no-print"><button class="btn" type="button" onclick="window.print()">⎙ Drucken</button><a href="{{ url_for('admin') }}" class="btn">← Admin</a></div></div>
+<div class="tablewrap"><table><thead><tr><th>Jahr</th><th>Beitragspflichtiger</th><th>Art</th><th>Betrag</th><th>Bezahlt</th><th>Zahlungsdatum</th><th>Tatsächlich überwiesen</th><th>Vermerk</th><th>Archivgrund</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.year }}</td><td>{{ row.payer_name }}</td><td>{{ row.category_name }}</td><td>{{ row.amount_cents|euro }}</td><td>{{ 'Ja' if row.paid else 'Nein' }}</td><td>{{ row.paid_at or '–' }}</td><td>{{ row.received_cents|euro if row.paid and row.received_cents is not none else '–' }}</td><td>{{ row.payment_note or '–' }}</td><td>{{ row.archive_reason }}</td></tr>
+{% else %}<tr><td colspan="9" class="empty">Keine archivierten Beiträge vorhanden.</td></tr>{% endfor %}
+</tbody></table></div><p class="hint">Hinweis: Das Löscharchiv dient der Nachvollziehbarkeit. Die Jahresstatistik und die normalen Beitragslisten enthalten nur aktive Beitragsdatensätze.</p>
+{% endblock %}
